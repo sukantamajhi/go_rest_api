@@ -32,3 +32,5 @@ go.work.sum
 # Config file
 config.yaml
 
+# Temp file
+tmp/*

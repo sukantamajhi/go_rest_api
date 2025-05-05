@@ -1,5 +1,12 @@
 package models
 
+import (
+	"context"
+
+	"github.com/sukantamajhi/go_rest_api/database"
+	"go.mongodb.org/mongo-driver/bson"
+)
+
 type Product struct {
 	ID          string `json:"id" bson:"_id"`
 	Name        string `json:"name" bson:"name"`
@@ -9,48 +16,37 @@ type Product struct {
 	UpdatedAt   string `json:"updatedAt" bson:"updatedAt"`
 }
 
-// Set setters and getters
-func (p *Product) GetID() string {
-	return p.ID
+func GetProductBySku(sku string) (*Product, error) {
+	ProductCollection := database.GetCollection("products")
+	product := &Product{}
+	err := ProductCollection.FindOne(context.Background(), bson.M{"sku": sku}).Decode(product)
+	return product, err
 }
 
-func (p *Product) SetID(id string) {
-	p.ID = id
+func GetAllProducts() ([]*Product, error) {
+	ProductCollection := database.GetCollection("products")
+
+	products := []*Product{}
+	cursor, err := ProductCollection.Find(context.Background(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.Background(), &products)
+	return products, err
 }
 
-func (p *Product) GetName() string {
-	return p.Name
+func GetProductById(id string) (*Product, error) {
+	ProductCollection := database.GetCollection("products")
+
+	product := &Product{}
+	err := ProductCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(product)
+	return product, err
 }
 
-func (p *Product) SetName(name string) {
-	p.Name = name
-}
+func UpdateProduct(id string, product *Product) error {
+	ProductCollection := database.GetCollection("products")
 
-func (p *Product) GetDescription() string {
-	return p.Description
-}
-
-func (p *Product) SetDescription(description string) {
-	p.Description = description
-}
-
-func (p *Product) GetSku() string {
-	return p.Sku
-}
-
-func (p *Product) SetSku(sku string) {
-	p.Sku = sku
-}
-
-func (p *Product) GetCreatedAt() string {
-	return p.CreatedAt
-}
-func (p *Product) SetCreatedAt(createdAt string) {
-	p.CreatedAt = createdAt
-}
-func (p *Product) GetUpdatedAt() string {
-	return p.UpdatedAt
-}
-func (p *Product) SetUpdatedAt(updatedAt string) {
-	p.UpdatedAt = updatedAt
+	_, err := ProductCollection.UpdateOne(context.Background(), bson.M{"_id": id}, bson.M{"$set": product})
+	return err
 }
