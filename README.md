@@ -55,7 +55,7 @@ A RESTful API built with Go, Gin framework, and MongoDB.
 2. Install dependencies:
 
    ```bash
-   go mod download
+   make deps
    ```
 
 3. Configure environment variables:

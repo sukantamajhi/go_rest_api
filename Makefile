@@ -1,4 +1,4 @@
-.PHONY: build run clean test install dev
+.PHONY: build run clean test install dev deps
 
 build:
 	@go build -o bin/go_rest_api
@@ -21,5 +21,6 @@ clean:
 test:
 	@go test ./...
 
-install:
-	@go install 
+## deps: Download modules
+deps:
+	@go mod download

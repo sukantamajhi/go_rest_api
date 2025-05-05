@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/sukantamajhi/go_rest_api/config"
 	"github.com/sukantamajhi/go_rest_api/database"
 	"github.com/sukantamajhi/go_rest_api/models"
+	"github.com/sukantamajhi/go_rest_api/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -38,10 +40,12 @@ func Authenticate() gin.HandlerFunc {
 		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok && parsedToken.Valid {
 			userID := claims["sub"]
 
+			log.Printf("userID: %+v", userID)
+
 			userCollection := database.GetCollection("users")
 
 			var user models.User
-			err := userCollection.FindOne(context.Background(), bson.M{"_id": userID}).Decode(&user)
+			err := userCollection.FindOne(context.Background(), bson.M{"_id": userID.(string)}).Decode(&user)
 
 			if err != nil {
 				log.Println("Error fetching user", err)
@@ -66,4 +70,17 @@ func Authenticate() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func GetUserFromContext(c *gin.Context) (models.User, error) {
+	user, ok := c.Get("user")
+
+	log.Printf("user: %+v", user)
+
+	if !ok {
+		utils.ErrorResponse(c, "User not found in context")
+		return models.User{}, errors.New("user not found in context")
+	}
+
+	return user.(models.User), nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/sukantamajhi/go_rest_api/config"
 	"github.com/sukantamajhi/go_rest_api/database"
+	"github.com/sukantamajhi/go_rest_api/dtos/requests"
 	"github.com/sukantamajhi/go_rest_api/models"
 	"github.com/sukantamajhi/go_rest_api/utils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,25 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type RegisterRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-}
-
-type ResponseUser struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
-type RegisterResponse struct {
-	Message string       `json:"message"`
-	User    ResponseUser `json:"user"`
-	UserId  any          `json:"userId"`
-}
-
 func Register(c *gin.Context) {
-	request, err := utils.ParseRequest[RegisterRequest](c)
+	request, err := utils.ParseRequest[requests.RegisterRequest](c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -44,11 +28,13 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	username, name, email, password := utils.TrimmedString(&request.Username), utils.TrimmedString(&request.Name), utils.TrimmedString(&request.Email), utils.TrimmedString(&request.Password)
+
 	userCollection := database.GetCollection("users")
 
 	// Find the existing user
 	var existingUser models.User
-	err = userCollection.FindOne(context.TODO(), bson.M{"email": request.Email}).Decode(&existingUser)
+	err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&existingUser)
 
 	if err != nil && err != mongo.ErrNoDocuments {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -64,7 +50,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -73,13 +59,15 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	now := time.Now()
 	user := models.User{
-		ID:        primitive.NewObjectID().Hex(),
-		Name:      request.Name,
-		Email:     request.Email,
+		ID:        primitive.NewObjectID(),
+		Username:  username,
+		Name:      name,
+		Email:     email,
 		Password:  string(hashedPassword),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	insertedUser, err := userCollection.InsertOne(context.TODO(), user)
@@ -95,13 +83,15 @@ func Register(c *gin.Context) {
 
 	log.Println("insertedUser", insertedUser)
 
-	response := RegisterResponse{
+	user.ID = insertedUser.InsertedID.(primitive.ObjectID)
+	response := requests.RegisterResponse{
 		Message: "User registered successfully",
-		User: ResponseUser{
-			Name:  user.Name,
-			Email: user.Email,
+		Data: requests.ResponseUser{
+			ID:       user.ID,
+			Username: user.Username,
+			Name:     user.Name,
+			Email:    user.Email,
 		},
-		UserId: insertedUser.InsertedID,
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -169,7 +159,7 @@ func Login(c *gin.Context) {
 
 	// Create the Claims
 	claims := &jwt.StandardClaims{
-		Subject:   existingUser.ID,
+		Subject:   existingUser.ID.Hex(),
 		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 		Issuer:    existingUser.Email,
 	}
