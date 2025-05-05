@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/sukantamajhi/go_rest_api/config"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,6 +22,7 @@ func Connect_to_db() {
 	client, err = mongo.Connect(context.TODO(), opts)
 
 	if err != nil {
+		os.Exit(0)
 		panic(err)
 	}
 
@@ -33,7 +35,7 @@ func Connect_to_db() {
 }
 
 func GetCollection(collectionName string) *mongo.Collection {
-	return client.Database("go_rest_api").Collection(collectionName)
+	return client.Database(config.AppConfig.Database_Name).Collection(collectionName)
 }
 
 func CloseDB() {

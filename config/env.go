@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	Port       int
-	MongoDBURI string
-	GinMode    string
-	JwtSecret  string
+	Port          int
+	Database_Name string
+	MongoDBURI    string
+	GinMode       string
+	JwtSecret     string
 }
 
 var AppConfig Config
@@ -17,10 +18,11 @@ var AppConfig Config
 func LoadConfig() {
 	// Load environment variables
 	AppConfig = Config{
-		Port:       getEnvAsInt("PORT", 8080),
-		MongoDBURI: getEnv("MONGODB_URI", "mongodb://localhost:27017"),
-		GinMode:    getEnv("GIN_MODE", "release"),
-		JwtSecret:  getEnv("JWT_SECRET_KEY", "secret"),
+		Port:          getEnvAsInt("PORT", 8080),
+		Database_Name: getEnv("DATABASE_NAME", ""),
+		MongoDBURI:    getEnv("MONGODB_URI", "mongodb://localhost:27017"),
+		GinMode:       getEnv("GIN_MODE", "release"),
+		JwtSecret:     getEnv("JWT_SECRET_KEY", "secret"),
 	}
 }
 

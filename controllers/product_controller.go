@@ -8,6 +8,8 @@ import (
 )
 
 func CreateProduct(c *gin.Context) {
+	
+
 	c.SecureJSON(http.StatusOK, gin.H{
 		"status":  true,
 		"message": "Product created successfully",
@@ -16,4 +18,7 @@ func CreateProduct(c *gin.Context) {
 
 func GetProducts(c *gin.Context) {
 	fmt.Println("Get Products")
+	c.SecureJSON(http.StatusOK, gin.H{
+		"message": "Success",
+	})
 }
