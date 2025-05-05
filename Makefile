@@ -14,6 +14,8 @@ dev:
 
 clean:
 	@rm -rf bin/
+	@rm -rf .air.toml
+	@rm -rf tmp/
 	@go clean
 
 test:
