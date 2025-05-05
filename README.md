@@ -20,7 +20,7 @@ A RESTful API built with Go, Gin framework, and MongoDB.
 
 ## Project Structure
 
-```
+```markdown
 ├── config/         # Application configuration
 ├── controllers/    # API controllers (auth, product)
 ├── database/       # Database connection and operations
@@ -46,19 +46,22 @@ A RESTful API built with Go, Gin framework, and MongoDB.
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/go_rest_api.git
    cd go_rest_api
    ```
 
 2. Install dependencies:
+
    ```bash
    go mod download
    ```
 
 3. Configure environment variables:
    Create a `.env` file in the root directory with the following variables:
-   ```
+
+   ```bash
    PORT=8000
    MONGODB_URI=your_mongodb_connection_string
    DATABASE_NAME=go_rest_api
@@ -104,4 +107,4 @@ make start
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.
