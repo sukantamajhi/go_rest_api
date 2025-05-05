@@ -10,9 +10,6 @@ func ProductRouter(router *gin.RouterGroup) *gin.RouterGroup {
 	productRouter := router.Group("/products")
 
 	productRouter.POST("/", middleware.Authenticate(), controllers.CreateProduct)
-	productRouter.GET("/", controllers.GetProducts)
-	// productRouter.GET("/:id", controllers.GetProductById)
-	// productRouter.PUT("/:id", controllers.UpdateProduct)
-	// productRouter.DELETE("/:id", controllers.DeleteProduct)
+	productRouter.GET("/", middleware.Authenticate(), controllers.GetProducts)
 	return productRouter
 }

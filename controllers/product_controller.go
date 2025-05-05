@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -32,7 +31,9 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	log.Printf("user: %+v", user)
+	userID := user.(models.User).ID
+
+	log.Println("userID", userID)
 
 	if err != nil {
 		c.SecureJSON(http.StatusBadRequest, gin.H{
@@ -45,7 +46,10 @@ func CreateProduct(c *gin.Context) {
 	productCollection := database.GetCollection("products")
 
 	// Check if sku already exists or not
-	product, err := models.GetProductBySku(request.Sku)
+	var product *models.Product
+	err = productCollection.FindOne(context.Background(), bson.M{"sku": request.Sku}).Decode(&product)
+
+	log.Printf("product: %+v", product)
 
 	if err == nil && product.ID != "" {
 		c.SecureJSON(http.StatusBadRequest, gin.H{
@@ -60,6 +64,7 @@ func CreateProduct(c *gin.Context) {
 		"name":        request.Name,
 		"description": request.Description,
 		"sku":         request.Sku,
+		"createdBy":   userID,
 		"createdAt":   time.Now().Format(time.RFC3339),
 		"updatedAt":   time.Now().Format(time.RFC3339),
 	})
@@ -79,8 +84,41 @@ func CreateProduct(c *gin.Context) {
 }
 
 func GetProducts(c *gin.Context) {
-	fmt.Println("Get Products")
+	productCollection := database.GetCollection("products")
+
+	user, exists := c.Get("user")
+
+	if !exists {
+		c.SecureJSON(http.StatusUnauthorized, gin.H{
+			"status":  false,
+			"message": "Unauthorized",
+		})
+		return
+	}
+
+	userID := user.(models.User).ID
+
+	cursor, err := productCollection.Find(context.Background(), bson.M{"createdBy": userID})
+	if err != nil {
+		c.SecureJSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": err.Error(),
+		})
+	}
+
+	products := []*models.Product{}
+	err = cursor.All(context.Background(), &products)
+	if err != nil {
+		c.SecureJSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": err.Error(),
+		})
+		return
+	}
+
 	c.SecureJSON(http.StatusOK, gin.H{
-		"message": "Success",
+		"status":  true,
+		"message": "Products fetched successfully",
+		"data":    products,
 	})
 }

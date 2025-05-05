@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -36,7 +36,6 @@ func Authenticate() gin.HandlerFunc {
 		})
 
 		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok && parsedToken.Valid {
-			fmt.Println(claims)
 			userID := claims["sub"]
 
 			userCollection := database.GetCollection("users")
@@ -45,6 +44,7 @@ func Authenticate() gin.HandlerFunc {
 			err := userCollection.FindOne(context.Background(), bson.M{"_id": userID}).Decode(&user)
 
 			if err != nil {
+				log.Println("Error fetching user", err)
 				c.SecureJSON(http.StatusUnauthorized, gin.H{
 					"status":  false,
 					"code":    "UNAUTHORIZED",
@@ -55,7 +55,7 @@ func Authenticate() gin.HandlerFunc {
 
 			c.Set("user", user)
 		} else {
-			fmt.Println(err)
+			log.Println("Error parsing token", err)
 			c.SecureJSON(http.StatusUnauthorized, gin.H{
 				"status":  false,
 				"code":    "UNAUTHORIZED",
