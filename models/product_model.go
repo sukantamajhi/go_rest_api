@@ -8,9 +8,9 @@ import (
 
 type Product struct {
 	ID          primitive.ObjectID `json:"id" bson:"_id"`
-	Name        string             `json:"name" bson:"name"`
+	Name        string             `json:"name" bson:"name" binding:"required"`
 	Description string             `json:"description" bson:"description"`
-	Sku         string             `json:"sku" bson:"sku"`
+	Sku         string             `json:"sku" bson:"sku" binding:"required" index:"true"`
 	CreatedBy   primitive.ObjectID `json:"createdBy" bson:"createdBy"`
 	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
 	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`

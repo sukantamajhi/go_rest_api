@@ -3,6 +3,7 @@ package utils
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -49,4 +50,18 @@ func ObjectIDFromHex(hex string) primitive.ObjectID {
 		log.Fatal(err)
 	}
 	return objectID
+}
+
+func GetIntQuery(c *gin.Context, key string, defaultValue int) int {
+	value := c.Query(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+
+	return intValue
 }

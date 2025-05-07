@@ -63,15 +63,23 @@ func GetProducts(c *gin.Context) {
 	productCollection := database.GetCollection("products")
 
 	userID, err := middleware.GetUserID(c)
-
 	if err != nil {
 		utils.ErrorResponse(c, "Unauthorized", nil)
 		return
 	}
 
+	// Get pagination parameters from query
+	page := utils.GetIntQuery(c, "page", 1)
+	limit := utils.GetIntQuery(c, "limit", 10)
+	skip := (page - 1) * limit
+
+	// Create a more efficient pipeline
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{"createdBy": utils.ObjectIDFromHex(userID)},
+		},
+		{
+			"$sort": bson.M{"createdAt": -1},
 		},
 		{
 			"$lookup": bson.M{
@@ -82,30 +90,44 @@ func GetProducts(c *gin.Context) {
 			},
 		},
 		{
-			"$unwind": bson.M{
-				"path":                       "$creator",
-				"preserveNullAndEmptyArrays": true,
-			},
+			"$skip": skip,
 		},
 		{
-			"$project": bson.M{
-				"_id":         1,
-				"name":        1,
-				"description": 1,
-				"sku":         1,
-				"createdBy":   1,
-				"createdAt":   1,
-				"updatedAt":   1,
-				"creator": bson.M{
-					"_id":      "$creator._id",
-					"name":     "$creator.name",
-					"username": "$creator.username",
-					"email":    "$creator.email",
-				},
-			},
+			"$limit": limit,
+		},
+		{
+			"$project": utils.ProductProjection,
 		},
 	}
 
+	// Get total count for pagination
+	countPipeline := []bson.M{
+		{
+			"$match": bson.M{"createdBy": utils.ObjectIDFromHex(userID)},
+		},
+		{
+			"$count": "total",
+		},
+	}
+
+	// Execute count query
+	var countResult []bson.M
+	countCursor, err := productCollection.Aggregate(context.Background(), countPipeline)
+	if err != nil {
+		utils.ErrorResponse(c, err.Error(), nil)
+		return
+	}
+	if err = countCursor.All(context.Background(), &countResult); err != nil {
+		utils.ErrorResponse(c, err.Error(), nil)
+		return
+	}
+
+	total := 0
+	if len(countResult) > 0 {
+		total = int(countResult[0]["total"].(int32))
+	}
+
+	// Execute main query
 	cursor, err := productCollection.Aggregate(context.Background(), pipeline)
 	if err != nil {
 		utils.ErrorResponse(c, err.Error(), nil)
@@ -118,5 +140,14 @@ func GetProducts(c *gin.Context) {
 		return
 	}
 
-	utils.SuccessResponse(c, "Products fetched successfully", products)
+	// Return paginated response
+	utils.SuccessResponse(c, "Products fetched successfully", gin.H{
+		"products": products,
+		"pagination": gin.H{
+			"total": total,
+			"page":  page,
+			"limit": limit,
+			"pages": (total + limit - 1) / limit,
+		},
+	})
 }

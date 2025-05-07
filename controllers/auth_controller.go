@@ -108,7 +108,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	mySigningKey := []byte(config.AppConfig.JwtSecret)
+	mySigningKey := []byte(config.Env.JwtSecret)
 
 	// Create the Claims
 	claims := &jwt.StandardClaims{
@@ -127,7 +127,7 @@ func Login(c *gin.Context) {
 		log.Println("Error: ", err)
 		var message string
 
-		if config.AppConfig.GinMode == "release" {
+		if config.Env.GinMode == "release" {
 			message = "Something went wrong"
 		} else {
 			message = err.Error()

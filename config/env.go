@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -13,11 +15,13 @@ type Config struct {
 	JwtSecret     string
 }
 
-var AppConfig Config
+var Env Config
 
 func LoadConfig() {
+	godotenv.Load()
+
 	// Load environment variables
-	AppConfig = Config{
+	Env = Config{
 		Port:          getEnvAsInt("PORT", 8080),
 		Database_Name: getEnv("DATABASE_NAME", ""),
 		MongoDBURI:    getEnv("MONGODB_URI", "mongodb://localhost:27017"),

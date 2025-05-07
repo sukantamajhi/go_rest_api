@@ -1,23 +1,24 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/sukantamajhi/go_rest_api/config"
 	"github.com/sukantamajhi/go_rest_api/database"
 	"github.com/sukantamajhi/go_rest_api/routers"
 )
 
 func main() {
-	// Load environment variables
-	godotenv.Load()
+	args := os.Args
 
-	// Load configuration
 	config.LoadConfig()
 
-	if config.AppConfig.GinMode == "release" {
+	fmt.Println("Args: ", args)
+
+	if config.Env.GinMode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -25,6 +26,8 @@ func main() {
 	database.Connect_to_db()
 	defer database.CloseDB()
 
+	fmt.Println("Starting server on port:", config.Env.Port)
+
 	router := routers.SetupRouter()
-	router.Run(":" + strconv.Itoa(config.AppConfig.Port))
+	router.Run(":" + strconv.Itoa(config.Env.Port))
 }

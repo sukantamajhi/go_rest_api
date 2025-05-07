@@ -15,7 +15,7 @@ var client *mongo.Client
 func Connect_to_db() {
 	// Use the SetServerAPIOptions() method to set the version of the Stable API on the client
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(config.AppConfig.MongoDBURI).SetServerAPIOptions(serverAPI)
+	opts := options.Client().ApplyURI(config.Env.MongoDBURI).SetServerAPIOptions(serverAPI)
 	// Create a new client and connect to the server
 	var err error
 	client, err = mongo.Connect(context.TODO(), opts)
@@ -33,7 +33,7 @@ func Connect_to_db() {
 }
 
 func GetCollection(collectionName string) *mongo.Collection {
-	return client.Database(config.AppConfig.Database_Name).Collection(collectionName)
+	return client.Database(config.Env.Database_Name).Collection(collectionName)
 }
 
 func CloseDB() {
