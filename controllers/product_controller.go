@@ -90,6 +90,9 @@ func GetProducts(c *gin.Context) {
 			},
 		},
 		{
+			"$unwind": "$creator",
+		},
+		{
 			"$skip": skip,
 		},
 		{

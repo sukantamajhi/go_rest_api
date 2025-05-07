@@ -24,7 +24,7 @@ func Register(c *gin.Context) {
 	request, err := utils.ParseRequest[requests.RegisterRequest](c)
 
 	if err != nil {
-		utils.ErrorResponse(c, err.Error(), nil, http.StatusUnprocessableEntity)
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusBadRequest)
 		return
 	}
 

@@ -1,9 +1,17 @@
 package requests
 
+import "github.com/go-playground/validator/v10"
+
 type CreateProductRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description" binding:"required"`
 	Sku         string `json:"sku" binding:"required"`
+}
+
+func (c *CreateProductRequest) Validate() error {
+	validate := validator.New()
+
+	return validate.Struct(c)
 }
 
 type ProductResponse struct {
