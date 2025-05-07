@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,86 +22,54 @@ import (
 
 func Register(c *gin.Context) {
 	request, err := utils.ParseRequest[requests.RegisterRequest](c)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusUnprocessableEntity)
 		return
 	}
 
-	username, name, email, password := utils.TrimmedString(&request.Username), utils.TrimmedString(&request.Name), utils.TrimmedString(&request.Email), utils.TrimmedString(&request.Password)
+	username := strings.TrimSpace(request.Username)
+	name := strings.TrimSpace(request.Name)
+	email := strings.TrimSpace(request.Email)
+	password := strings.TrimSpace(request.Password)
 
 	userCollection := database.GetCollection("users")
 
 	// Find the existing user
 	var existingUser models.User
-	err = userCollection.FindOne(context.TODO(), bson.M{"email": email}).Decode(&existingUser)
+	err = userCollection.FindOne(context.TODO(), bson.M{"$or": []bson.M{{"email": email}, {"username": username}}}).Decode(&existingUser)
 
 	if err != nil && err != mongo.ErrNoDocuments {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to check user existence",
-		})
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusInternalServerError)
 		return
 	}
 
 	if existingUser.Email != "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "User already exists",
-		})
+		utils.ErrorResponse(c, "User already exists", gin.H{
+			"email":    email,
+			"username": username,
+		}, http.StatusBadRequest)
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to hash password",
-		})
-		return
-	}
-
-	now := time.Now()
-	user := models.User{
-		ID:        primitive.NewObjectID(),
-		Username:  username,
-		Name:      name,
-		Email:     email,
-		Password:  string(hashedPassword),
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
+	user := models.NewUser(username, email, name, "1234567890", password)
 
 	insertedUser, err := userCollection.InsertOne(context.TODO(), user)
 
 	log.Println("error", err)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to insert user",
-		})
+		utils.ErrorResponse(c, "Failed to insert user", nil, http.StatusInternalServerError)
 		return
 	}
 
-	log.Println("insertedUser", insertedUser)
-
 	user.ID = insertedUser.InsertedID.(primitive.ObjectID)
-	response := requests.RegisterResponse{
-		Message: "User registered successfully",
-		Data: requests.ResponseUser{
-			ID:       user.ID,
-			Username: user.Username,
-			Name:     user.Name,
-			Email:    user.Email,
-		},
-	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"result": response,
-	})
+	utils.SuccessResponse(c, "User registered successfully", user, http.StatusCreated)
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Identity string `json:"identity" binding:"required"`
 	Password string `json:"password" binding:"required,min=8"`
 }
 
@@ -109,49 +78,33 @@ func Login(c *gin.Context) {
 
 	if err != nil {
 		log.Println("Error in login validation", err)
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"status":  false,
-			"code":    "LOGIN_FAILED",
-			"message": "Something went wrong",
-			"error":   err.Error(),
-		})
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusUnprocessableEntity)
 		return
 	}
+
+	identity := strings.TrimSpace(request.Identity)
+	password := strings.TrimSpace(request.Password)
 
 	userCollection := database.GetCollection("users")
 
 	// Find the existing user
 	var existingUser models.User
-	err = userCollection.FindOne(context.TODO(), bson.M{"email": request.Email}).Decode(&existingUser)
+	err = userCollection.FindOne(context.TODO(), bson.M{"$or": []bson.M{{"email": identity}, {"username": identity}}}).Decode(&existingUser)
 
 	if err != nil && err != mongo.ErrNoDocuments {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  false,
-			"code":    "SERVER_ERROR",
-			"message": "Failed to check user existence",
-		})
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusInternalServerError)
 		return
 	}
 
 	if existingUser.Email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
-			"code":    "USER_NOT_FOUND",
-			"message": "User does not exist",
-		})
+		utils.ErrorResponse(c, "User does not exist", nil, http.StatusNotFound)
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(request.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(password))
 
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
-			"code":    "LOGIN_FAILED",
-			"message": "Invalid password",
-			"error":   err.Error(),
-		})
-		c.Abort()
+		utils.ErrorResponse(c, "Invalid password", nil, http.StatusUnauthorized)
 		return
 	}
 
@@ -180,18 +133,11 @@ func Login(c *gin.Context) {
 			message = err.Error()
 		}
 
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
-			"code":    "SERVER_ERROR",
-			"message": message,
-		})
-		c.Abort()
+		utils.ErrorResponse(c, message, nil, http.StatusInternalServerError)
 		return
 	}
 
-	c.SecureJSON(http.StatusOK, gin.H{
-		"status":  true,
-		"token":   tokenString,
-		"message": "User logged in successfully",
+	utils.SuccessResponse(c, "User logged in successfully", gin.H{
+		"token": tokenString,
 	})
 }

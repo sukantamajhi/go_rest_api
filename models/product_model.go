@@ -15,3 +15,20 @@ type Product struct {
 	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
 	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
+
+func (p *Product) CollectionName() string {
+	return "products"
+}
+
+func NewProduct(name, description, sku string, createdBy primitive.ObjectID) *Product {
+	now := time.Now()
+	return &Product{
+		ID:          primitive.NewObjectID(),
+		Name:        name,
+		Description: description,
+		Sku:         sku,
+		CreatedBy:   createdBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+}

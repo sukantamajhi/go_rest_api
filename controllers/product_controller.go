@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sukantamajhi/go_rest_api/database"
@@ -25,17 +24,17 @@ func CreateProduct(c *gin.Context) {
 	// Parse and validate request
 	request, err := utils.ParseRequest[requests.CreateProductRequest](c)
 	if err != nil {
-		c.SecureJSON(http.StatusUnprocessableEntity, gin.H{
-			"status":  false,
-			"message": err.Error(),
-		})
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusUnprocessableEntity)
 		return
 	}
 
 	// Get user context
-	user, _ := middleware.GetUserFromContext(c)
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		utils.ErrorResponse(c, err.Error(), nil, http.StatusUnauthorized)
+		return
+	}
 
-	userID := user.ID
 	productCollection := database.GetCollection("products")
 
 	// Check if sku already exists or not
@@ -45,65 +44,79 @@ func CreateProduct(c *gin.Context) {
 
 	// Check if product already exists with the same SKU
 	if err == nil && product.ID != primitive.NilObjectID {
-		utils.ErrorResponse(c, "Product already exists with this sku")
+		utils.ErrorResponse(c, "Product already exists with this sku", nil, http.StatusBadRequest)
 		return
 	}
 
-	// Create new product
-	now := time.Now()
-	newProduct := models.Product{
-		ID:          primitive.NewObjectID(),
-		Name:        utils.TrimmedString(&request.Name),
-		Description: utils.TrimmedString(&request.Description),
-		Sku:         utils.TrimmedString(&request.Sku),
-		CreatedBy:   userID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	insertedProduct, err := productCollection.InsertOne(context.TODO(), newProduct)
+	newProduct := models.NewProduct(request.Name, request.Description, request.Sku, utils.ObjectIDFromHex(userID))
+	_, err = productCollection.InsertOne(context.TODO(), newProduct)
 
 	if err != nil {
-		utils.ErrorResponse(c, err.Error())
+		utils.ErrorResponse(c, err.Error(), nil)
 		return
 	}
 
-	newProduct.ID = insertedProduct.InsertedID.(primitive.ObjectID)
-
-	utils.SuccessResponse(c, "Product created successfully", newProduct)
+	utils.SuccessResponse(c, "Product created successfully", newProduct, http.StatusCreated)
 }
 
 func GetProducts(c *gin.Context) {
 	productCollection := database.GetCollection("products")
 
-	user, exists := c.Get("user")
+	userID, err := middleware.GetUserID(c)
 
-	if !exists {
-		utils.ErrorResponse(c, "Unauthorized")
+	if err != nil {
+		utils.ErrorResponse(c, "Unauthorized", nil)
 		return
 	}
 
-	userID := user.(models.User).ID
-
-	cursor, err := productCollection.Find(context.Background(), bson.M{"createdBy": userID})
-	if err != nil {
-		c.SecureJSON(http.StatusInternalServerError, gin.H{
-			"status":  false,
-			"message": err.Error(),
-		})
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{"createdBy": utils.ObjectIDFromHex(userID)},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "createdBy",
+				"foreignField": "_id",
+				"as":           "creator",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$creator",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+		{
+			"$project": bson.M{
+				"_id":         1,
+				"name":        1,
+				"description": 1,
+				"sku":         1,
+				"createdBy":   1,
+				"createdAt":   1,
+				"updatedAt":   1,
+				"creator": bson.M{
+					"_id":      "$creator._id",
+					"name":     "$creator.name",
+					"username": "$creator.username",
+					"email":    "$creator.email",
+				},
+			},
+		},
 	}
 
-	products := []*models.Product{}
-	err = cursor.All(context.Background(), &products)
+	cursor, err := productCollection.Aggregate(context.Background(), pipeline)
 	if err != nil {
-		c.SecureJSON(http.StatusInternalServerError, gin.H{
-			"status":  false,
-			"message": err.Error(),
-		})
+		utils.ErrorResponse(c, err.Error(), nil)
+		return
 	}
 
-	c.SecureJSON(http.StatusOK, gin.H{
-		"status":  true,
-		"message": "Products fetched successfully",
-		"data":    products,
-	})
+	var products []bson.M
+	if err = cursor.All(context.Background(), &products); err != nil {
+		utils.ErrorResponse(c, err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, "Products fetched successfully", products)
 }

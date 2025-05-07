@@ -20,11 +20,7 @@ func Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")
 		if token == "" {
-			c.SecureJSON(http.StatusUnauthorized, gin.H{
-				"status":  false,
-				"code":    "UNAUTHORIZED",
-				"message": "Unauthorized",
-			})
+			utils.ErrorResponse(c, "Unauthorized", nil, http.StatusUnauthorized)
 			c.Abort()
 			return
 		}
@@ -38,33 +34,25 @@ func Authenticate() gin.HandlerFunc {
 		})
 
 		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok && parsedToken.Valid {
-			userID := claims["sub"]
+			userID := claims["sub"].(string)
 
 			log.Printf("userID: %+v", userID)
 
 			userCollection := database.GetCollection("users")
 
 			var user models.User
-			err := userCollection.FindOne(context.Background(), bson.M{"_id": userID.(string)}).Decode(&user)
+			err := userCollection.FindOne(context.Background(), bson.M{"_id": utils.ObjectIDFromHex(userID)}).Decode(&user)
 
 			if err != nil {
 				log.Println("Error fetching user", err)
-				c.SecureJSON(http.StatusUnauthorized, gin.H{
-					"status":  false,
-					"code":    "UNAUTHORIZED",
-					"message": "Unauthorized",
-				})
+				utils.ErrorResponse(c, "Unauthorized", nil, http.StatusUnauthorized)
 				c.Abort()
 			}
 
 			c.Set("user", user)
 		} else {
 			log.Println("Error parsing token", err)
-			c.SecureJSON(http.StatusUnauthorized, gin.H{
-				"status":  false,
-				"code":    "UNAUTHORIZED",
-				"message": "Unauthorized",
-			})
+			utils.ErrorResponse(c, "Unauthorized", nil, http.StatusUnauthorized)
 			c.Abort()
 		}
 
@@ -72,15 +60,28 @@ func Authenticate() gin.HandlerFunc {
 	}
 }
 
-func GetUserFromContext(c *gin.Context) (models.User, error) {
-	user, ok := c.Get("user")
+func GetUser(c *gin.Context) (*models.User, error) {
+	userValue, exists := c.Get("user")
+
+	if !exists {
+		return nil, errors.New("user not found in context")
+	}
+
+	user, ok := userValue.(models.User)
+	if !ok {
+		return nil, errors.New("invalid user type in context")
+	}
 
 	log.Printf("user: %+v", user)
 
-	if !ok {
-		utils.ErrorResponse(c, "User not found in context")
-		return models.User{}, errors.New("user not found in context")
+	return &user, nil
+}
+
+func GetUserID(c *gin.Context) (string, error) {
+	user, err := GetUser(c)
+	if err != nil {
+		return "", err
 	}
 
-	return user.(models.User), nil
+	return user.ID.Hex(), nil
 }
