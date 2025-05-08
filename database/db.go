@@ -51,6 +51,7 @@ func Connect_to_db() {
 	defer fmt.Println("Connected to MongoDB!")
 }
 
+// GetCollection returns a MongoDB collection by name
 func GetCollection(collectionName string) *mongo.Collection {
 	return database.Collection(collectionName)
 }

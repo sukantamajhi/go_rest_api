@@ -1,7 +1,7 @@
 package requests
 
 type Response struct {
-	Status  bool   `json:"status"`
+	Status  bool   `json:"success"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
