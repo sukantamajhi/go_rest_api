@@ -108,21 +108,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	mySigningKey := []byte(config.Env.JwtSecret)
-
-	// Create the Claims
-	claims := &jwt.StandardClaims{
-		Subject:   existingUser.ID.Hex(),
-		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
-		Issuer:    existingUser.Email,
-	}
-
-	// Create the token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign the token with our secret
-	tokenString, err := token.SignedString(mySigningKey)
-
+	tokenString, err := generateJWT(existingUser)
 	if err != nil {
 		log.Println("Error: ", err)
 		var message string
@@ -140,4 +126,17 @@ func Login(c *gin.Context) {
 	utils.SuccessResponse(c, "User logged in successfully", gin.H{
 		"token": tokenString,
 	})
+}
+
+func generateJWT(user models.User) (string, error) {
+	mySigningKey := []byte(config.Env.JwtSecret)
+
+	claims := &jwt.StandardClaims{
+		Subject:   user.ID.Hex(),
+		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+		Issuer:    user.Email,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(mySigningKey)
 }

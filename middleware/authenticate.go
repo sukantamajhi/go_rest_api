@@ -17,11 +17,11 @@ import (
 
 // Common error definitions
 var (
-	ErrUserNotFound      = errors.New("user not found in context")
-	ErrInvalidUserType   = errors.New("invalid user type in context")
-	ErrUnauthorized      = errors.New("unauthorized")
-	ErrInvalidToken      = errors.New("invalid token")
-	ErrUserDoesNotExist  = errors.New("user does not exist")
+	ErrUserNotFound     = errors.New("user not found in context")
+	ErrInvalidUserType  = errors.New("invalid user type in context")
+	ErrUnauthorized     = errors.New("unauthorized")
+	ErrInvalidToken     = errors.New("invalid token")
+	ErrUserDoesNotExist = errors.New("user does not exist")
 )
 
 // Authenticate middleware validates JWT tokens and adds user to context
@@ -94,20 +94,20 @@ func extractToken(c *gin.Context) string {
 // validateToken validates the JWT token and returns the claims
 func validateToken(tokenString string) (jwt.MapClaims, error) {
 	mySigningKey := []byte(config.Env.JwtSecret)
-	
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return mySigningKey, nil
 	})
-	
+
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
-	
+
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}
-	
+
 	return claims, nil
 }
 
@@ -115,16 +115,16 @@ func validateToken(tokenString string) (jwt.MapClaims, error) {
 func getUserByID(userID string) (models.User, error) {
 	userCollection := database.GetCollection("users")
 	var user models.User
-	
+
 	err := userCollection.FindOne(
-		context.Background(), 
+		context.Background(),
 		bson.M{"_id": utils.ObjectIDFromHex(userID)},
 	).Decode(&user)
-	
+
 	if err != nil {
 		return models.User{}, err
 	}
-	
+
 	return user, nil
 }
 
